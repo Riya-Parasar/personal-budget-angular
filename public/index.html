@@ -22,14 +22,12 @@
     <div class="menu">
         <!-- This is an A11y Change -->
         <nav aria-label="Main Navigation">
-        
-
-        <ul>
-            <li><a href="/">Homepage</a></li>
-            <li><a href="/about.html">About</a></li>
-            <li><a href="/login.html">Login</a></li>
-            <li><a href="https://google.com">Google</a></li>
-        </ul>
+            <ul>
+                <li><a href="/">Homepage</a></li>
+                <li><a href="/about.html">About</a></li>
+                <li><a href="/login.html">Login</a></li>
+                <li><a href="https://google.com">Google</a></li>
+            </ul>
         </nav>
     </div>
 
@@ -80,11 +78,15 @@
             <div class="text-box">
                 <h1>Free</h1>
                 <p>
-                    <canvas id = "myChart" width="400" height="400"></canvas>
+                    <canvas id="myChart" width="400" height="400"></canvas>
                 </p>
             </div>
-    
 
+            <!-- Add a container for the D3.js chart -->
+            <div id="d3ChartContainer">
+                <!-- The D3.js chart will be rendered here -->
+            </div>
+    
         </div>
 
     </div>
@@ -99,36 +101,38 @@
     </div>
  </footer>
 
+ <script src="http://d3js.org/d3.v3.min.js"></script>
  <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.5.0/axios.min.js" integrity="sha512-aoTNnqZcT8B4AmeCFmiSnDlc4Nj/KPaZyB5G7JnOnUEkdNpCZs1LCankiYi01sLTyWy+m2P+W4XM+BuQ3Q4/Dg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
- <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js" integrity="sha512-SIMGYRUjwY8+gKg7nn9EItdD8LCADSDfJNutF9TPrvEo86sQmFMh6MyralfIyhADlajSxqc7G0gs7+MwWF/ogQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>   <script>
+ <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js" integrity="sha512-SIMGYRUjwY8+gKg7nn9EItdD8LCADSDfJNutF9TPrvEo86sQmFMh6MyralfIyhADlajSxqc7G0gs7+MwWF/ogQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>   
+ <script>
   var dataSource = {
       datasets: [
           {
-              data: [30, 350, 90],
+              data: [],
               backgroundColor: [
                   '#ffcd56' ,
                   '#ff6384' ,
                   '#36a2eb' ,
                   '#fd6b19' ,
-
               ],
           }
       ],
       labels: [
-          'Eat out',
-          'Rent',
-          'Grocery'
 
       ]
   };
 
-  function createChart() {
+  function createChart() 
+    {
       var ctx = document.getElementById("myChart").getContext("2d");
       var myPieChart = new Chart(ctx, {
           type: 'pie',
           data: dataSource
       });
+    
   }
+
+  getBudget();
 
   function getBudget() {
       axios.get('/budget')
@@ -139,12 +143,66 @@
               dataSource.labels[i] = res.data.myBudget[i].title;
           }
           createChart();
+          createD3Chart(res.data.myBudget); // Call the function to create D3.js chart
       })
   }
   getBudget();
+ </script>
+ <!-- Move D3.js code inside DOMContentLoaded event -->
+ <script>
+  document.addEventListener("DOMContentLoaded", function () {
+      function createD3Chart(data) {
+          var width = 400;
+          var height = 400;
+          var radius = Math.min(width, height) / 2;
 
+          var svg = d3.select("#d3ChartContainer")
+              .append("svg")
+              .attr("width", width)
+              .attr("height", height)
+              .append("g")
+              .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")");
 
+          var color = d3.scaleOrdinal()
+              .domain(data.map(function (d) { return d.title; }))
+              .range(d3.schemeCategory10);
+
+          var pie = d3.pie()
+              .value(function (d) { return d.budget; });
+
+          var arc = d3.arc()
+              .outerRadius(radius * 0.8)
+              .innerRadius(0);
+
+          var arcs = svg.selectAll(".arc")
+              .data(pie(data))
+              .enter()
+              .append("g")
+              .attr("class", "arc");
+
+          arcs.append("path")
+              .attr("d", arc)
+              .attr("fill", function (d) { return color(d.data.title); });
+
+          arcs.append("text")
+              .attr("transform", function (d) {
+                  var pos = arc.centroid(d);
+                  return "translate(" + pos + ")";
+              })
+              .attr("dy", "0.35em")
+              .text(function (d) { return d.data.title; });
+
+          // Add budget numbers
+          arcs.append("text")
+              .attr("transform", function (d) {
+                  var pos = arc.centroid(d);
+                  return "translate(" + pos + ")";
+              })
+              .attr("dy", "1.5em") // Adjust the vertical position
+              .style("text-anchor", "middle")
+              .text(function (d) { return "$" + d.data.budget; }); // Display budget numbers
+      }
+  });
  </script>
 </body>
 </html>
-    
