@@ -100,7 +100,6 @@
        
     </div>
  </footer>
-
  <script src="http://d3js.org/d3.v3.min.js"></script>
  <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.5.0/axios.min.js" integrity="sha512-aoTNnqZcT8B4AmeCFmiSnDlc4Nj/KPaZyB5G7JnOnUEkdNpCZs1LCankiYi01sLTyWy+m2P+W4XM+BuQ3Q4/Dg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js" integrity="sha512-SIMGYRUjwY8+gKg7nn9EItdD8LCADSDfJNutF9TPrvEo86sQmFMh6MyralfIyhADlajSxqc7G0gs7+MwWF/ogQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>   
@@ -132,6 +131,8 @@
     
   }
 
+
+
   getBudget();
 
   function getBudget() {
@@ -143,66 +144,158 @@
               dataSource.labels[i] = res.data.myBudget[i].title;
           }
           createChart();
-          createD3Chart(res.data.myBudget); // Call the function to create D3.js chart
+          change(randomData(res.data.myBudget));
       })
   }
   getBudget();
- </script>
- <!-- Move D3.js code inside DOMContentLoaded event -->
- <script>
-  document.addEventListener("DOMContentLoaded", function () {
-      function createD3Chart(data) {
-          var width = 400;
-          var height = 400;
-          var radius = Math.min(width, height) / 2;
 
-          var svg = d3.select("#d3ChartContainer")
-              .append("svg")
-              .attr("width", width)
-              .attr("height", height)
-              .append("g")
-              .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")");
 
-          var color = d3.scaleOrdinal()
-              .domain(data.map(function (d) { return d.title; }))
-              .range(d3.schemeCategory10);
 
-          var pie = d3.pie()
-              .value(function (d) { return d.budget; });
 
-          var arc = d3.arc()
-              .outerRadius(radius * 0.8)
-              .innerRadius(0);
+var svg = d3.select("#d3ChartContainer")
+	.append("svg")
+	.append("g")
 
-          var arcs = svg.selectAll(".arc")
-              .data(pie(data))
-              .enter()
-              .append("g")
-              .attr("class", "arc");
+svg.append("g")
+	.attr("class", "slices");
+svg.append("g")
+	.attr("class", "labels");
+svg.append("g")
+	.attr("class", "lines");
 
-          arcs.append("path")
-              .attr("d", arc)
-              .attr("fill", function (d) { return color(d.data.title); });
+var width = 960,
+    height = 450,
+	radius = Math.min(width, height) / 2;
 
-          arcs.append("text")
-              .attr("transform", function (d) {
-                  var pos = arc.centroid(d);
-                  return "translate(" + pos + ")";
-              })
-              .attr("dy", "0.35em")
-              .text(function (d) { return d.data.title; });
+var pie = d3.layout.pie()
+	.sort(null)
+	.value(function(d) {
+		return d.value;
+	});
 
-          // Add budget numbers
-          arcs.append("text")
-              .attr("transform", function (d) {
-                  var pos = arc.centroid(d);
-                  return "translate(" + pos + ")";
-              })
-              .attr("dy", "1.5em") // Adjust the vertical position
-              .style("text-anchor", "middle")
-              .text(function (d) { return "$" + d.data.budget; }); // Display budget numbers
-      }
-  });
+var arc = d3.svg.arc()
+	.outerRadius(radius * 0.8)
+	.innerRadius(radius * 0.4);
+
+var outerArc = d3.svg.arc()
+	.innerRadius(radius * 0.9)
+	.outerRadius(radius * 0.9);
+
+svg.attr("transform", "translate(" + width / 2 + "," + height / 2 + ")");
+
+var key = function(d){ return d.data.label; };
+function getRandomColor() {
+  // Generate random values for Red, Green, and Blue channels
+  const red = Math.floor(Math.random() * 256);
+  const green = Math.floor(Math.random() * 256);
+  const blue = Math.floor(Math.random() * 256);
+
+  // Create a CSS color string in the format "rgb(R, G, B)"
+  const color = `rgb(${red}, ${green}, ${blue})`;
+
+  return color;
+}
+
+
+
+function randomData (dataSource){
+	return dataSource.map(function(data){
+		return { label: data.title, value: data.budget }
+	});
+}
+var key = function(d){ return d.data.label; };
+
+function change(data) {
+
+	/* ------- PIE SLICES -------*/
+	var slice = svg.select(".slices").selectAll("path.slice")
+		.data(pie(data), key);
+
+	slice.enter()
+		.insert("path")
+		.style("fill", function(d) { return getRandomColor(); })
+		.attr("class", "slice");
+
+	slice		
+		.transition().duration(1000)
+		.attrTween("d", function(d) {
+			this._current = this._current || d;
+			var interpolate = d3.interpolate(this._current, d);
+			this._current = interpolate(0);
+			return function(t) {
+				return arc(interpolate(t));
+			};
+		})
+
+	slice.exit()
+		.remove();
+
+	/* ------- TEXT LABELS -------*/
+
+	var text = svg.select(".labels").selectAll("text")
+		.data(pie(data), key);
+
+	text.enter()
+		.append("text")
+		.attr("dy", ".35em")
+		.text(function(d) {
+			return d.data.label;
+		});
+	
+	function midAngle(d){
+		return d.startAngle + (d.endAngle - d.startAngle)/2;
+	}
+
+	text.transition().duration(1000)
+		.attrTween("transform", function(d) {
+			this._current = this._current || d;
+			var interpolate = d3.interpolate(this._current, d);
+			this._current = interpolate(0);
+			return function(t) {
+				var d2 = interpolate(t);
+				var pos = outerArc.centroid(d2);
+				pos[0] = radius * (midAngle(d2) < Math.PI ? 1 : -1);
+				return "translate("+ pos +")";
+			};
+		})
+		.styleTween("text-anchor", function(d){
+			this._current = this._current || d;
+			var interpolate = d3.interpolate(this._current, d);
+			this._current = interpolate(0);
+			return function(t) {
+				var d2 = interpolate(t);
+				return midAngle(d2) < Math.PI ? "start":"end";
+			};
+		});
+
+	text.exit()
+		.remove();
+
+	/* ------- SLICE TO TEXT POLYLINES -------*/
+
+	var polyline = svg.select(".lines").selectAll("polyline")
+		.data(pie(data), key);
+	
+	polyline.enter()
+		.append("polyline");
+
+	polyline.transition().duration(1000)
+		.attrTween("points", function(d){
+			this._current = this._current || d;
+			var interpolate = d3.interpolate(this._current, d);
+			this._current = interpolate(0);
+			return function(t) {
+				var d2 = interpolate(t);
+				var pos = outerArc.centroid(d2);
+				pos[0] = radius * 0.95 * (midAngle(d2) < Math.PI ? 1 : -1);
+				return [arc.centroid(d2), outerArc.centroid(d2), pos];
+			};			
+		});
+	
+	polyline.exit()
+		.remove();
+};
+
  </script>
 </body>
 </html>
